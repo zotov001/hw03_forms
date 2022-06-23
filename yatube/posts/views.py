@@ -1,60 +1,55 @@
-from django.shortcuts import render, get_object_or_404, redirect
 from django.core.paginator import Paginator
-from .models import Group, Post, User
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+
 from .forms import PostForm
+from .models import Group, Post, User
 
 
 LIMIT_POSTS_ON_PAGE: int = 10
 
 
-def authorized_only(func):
-    def check_user(request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return func(request, *args, **kwargs)
-        return redirect('/auth/login/')
-    return check_user
-
-
 def index(request):
-    post_list = Post.objects.all()
-    paginator = Paginator(post_list, 10)
+    """Все посты, разбивает по LIMIT_POSTS_ON_PAGE штук на странице"""
+    post_list = Post.objects.select_related('author', 'group')
+    paginator = Paginator(post_list, LIMIT_POSTS_ON_PAGE)
     page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
     context = {
-        'page_obj': page_obj,
+        'page_obj': paginator.get_page(page_number),
     }
     return render(request, 'posts/index.html', context)
 
 
 def group_posts(request, slug):
+    """Посты группы, разбивает по LIMIT_POSTS_ON_PAGE штук на странице."""
     group = get_object_or_404(Group, slug=slug)
     post_list = group.posts.all()
-    paginator = Paginator(post_list, 10)
+    paginator = Paginator(post_list, LIMIT_POSTS_ON_PAGE)
     page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
     context = {
         'group': group,
-        'page_obj': page_obj,
+        'page_obj': paginator.get_page(page_number),
     }
     return render(request, 'posts/group_list.html', context)
 
 
 def profile(request, username):
-    user = get_object_or_404(User, username=username)
-    posts_list = Post.objects.filter(author=user)
-    posts_count = Post.objects.filter(author=user).count()
-    paginator = Paginator(posts_list, 10)
+    """Посты автора, разбивает по LIMIT_POSTS_ON_PAGE штук на странице."""
+    author = get_object_or_404(User, username=username)
+    posts_list = Post.objects.filter(author=author)
+    posts_count = Post.objects.filter(author=author).count()
+    paginator = Paginator(posts_list, LIMIT_POSTS_ON_PAGE)
     page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
     context = {
-        'author': user,
-        'page_obj': page_obj,
+        'author': author,
+        'page_obj': paginator.get_page(page_number),
         'posts_count': posts_count,
     }
     return render(request, 'posts/profile.html', context)
 
 
 def post_detail(request, post_id):
+    """Выводит определенный пост и инф о нем."""
     post = get_object_or_404(Post, pk=post_id)
     posts_count = Post.objects.filter(author=post.author).count()
     context = {
@@ -64,36 +59,36 @@ def post_detail(request, post_id):
     return render(request, 'posts/post_detail.html', context)
 
 
-@authorized_only
+@login_required
 def post_create(request, is_edit=False):
+    """Создание нового поста."""
     form = PostForm(request.POST or None)
-    context = {
-        'form': form,
-        'is_edit': is_edit
-    }
     if not form.is_valid():
+        context = {
+            'form': form,
+        }
         return render(request, 'posts/create_post.html', context)
-    post = form.save(commit=False)
-    post.author = request.user
-    post.save()
-
+    if request.method == "POST":
+        post = form.save(commit=False)
+        post.author = request.user
+        post.save()
     return redirect('posts:profile', request.user)
 
 
-@authorized_only
+@login_required
 def post_edit(request, post_id):
+    """Редактирование поста."""
     post = get_object_or_404(Post, pk=post_id)
     form = PostForm(request.POST or None, instance=post)
+    if post.author == request.user:
+        if not form.is_valid():
+            context = {
+                'form': form,
+            }
+            return render(request, 'posts/create_post.html', context)
     if request.method == "POST":
         post = form.save(commit=False)
         post.author = request.user
         post.save()
         return redirect('posts:post_detail', post_id)
-
-    context = {
-        'form': form,
-        'is_edit': True,
-    }
-    if post.author == request.user:
-        return render(request, 'posts/create_post.html', context)
     return redirect('posts:post_detail', post_id)

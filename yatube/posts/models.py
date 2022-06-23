@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 class Post(models.Model):
-    text = models.TextField()
+    text = models.TextField(verbose_name='Напишите свой пост')
     pub_date = models.DateTimeField(auto_now_add=True)
     author = models.ForeignKey(
         User,
@@ -15,7 +15,6 @@ class Post(models.Model):
     )
 
     def __str__(self):
-        # выводим текст поста
         return self.text
 
     group = models.ForeignKey(
@@ -23,10 +22,12 @@ class Post(models.Model):
         blank=True,
         null=True,
         on_delete=models.SET_NULL,
-        related_name='posts'
+        related_name='posts',
+        verbose_name='Группа'
     )
 
     class Meta:
+        verbose_name_plural = 'Группы'
         ordering = ['-pub_date']
 
 
