@@ -12,12 +12,11 @@ LIMIT_POSTS_ON_PAGE: int = 10
 def index(request):
     """Все посты, разбивает по LIMIT_POSTS_ON_PAGE штук на странице"""
     post_list = Post.objects.select_related('author', 'group')
-    paginator = Paginator(post_list, LIMIT_POSTS_ON_PAGE)
     page_number = request.GET.get('page')
-    context = {
-        'page_obj': paginator.get_page(page_number),
-    }
-    return render(request, 'posts/index.html', context)
+    return render(
+        request, 'posts/index.html', {'page_obj': Paginator(
+            post_list, LIMIT_POSTS_ON_PAGE).get_page(
+                page_number)})
 
 
 def group_posts(request, slug):
@@ -36,8 +35,8 @@ def group_posts(request, slug):
 def profile(request, username):
     """Посты автора, разбивает по LIMIT_POSTS_ON_PAGE штук на странице."""
     author = get_object_or_404(User, username=username)
-    posts_list = Post.objects.filter(author=author)
-    posts_count = Post.objects.filter(author=author).count()
+    posts_list = author.posts.all()
+    posts_count = posts_list.count()
     paginator = Paginator(posts_list, LIMIT_POSTS_ON_PAGE)
     page_number = request.GET.get('page')
     context = {
@@ -50,7 +49,10 @@ def profile(request, username):
 
 def post_detail(request, post_id):
     """Выводит определенный пост и инф о нем."""
-    post = get_object_or_404(Post, pk=post_id)
+    post = get_object_or_404(Post.objects.select_related(
+        'author',
+        'group',
+    ), id=post_id)
     posts_count = Post.objects.filter(author=post.author).count()
     context = {
         'post': post,
@@ -63,16 +65,12 @@ def post_detail(request, post_id):
 def post_create(request, is_edit=False):
     """Создание нового поста."""
     form = PostForm(request.POST or None)
-    if not form.is_valid():
-        context = {
-            'form': form,
-        }
-        return render(request, 'posts/create_post.html', context)
-    if request.method == "POST":
+    if (request.method == 'POST' and form.is_valid()):
         post = form.save(commit=False)
         post.author = request.user
         post.save()
-    return redirect('posts:profile', request.user)
+        return redirect('posts:profile', request.user.username)
+    return render(request, "posts/create_post.html", {'form': form})
 
 
 @login_required
@@ -84,6 +82,7 @@ def post_edit(request, post_id):
         if not form.is_valid():
             context = {
                 'form': form,
+                'is_edit': True
             }
             return render(request, 'posts/create_post.html', context)
     if request.method == "POST":
