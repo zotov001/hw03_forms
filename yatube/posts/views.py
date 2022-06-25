@@ -13,10 +13,9 @@ def index(request):
     """Все посты, разбивает по LIMIT_POSTS_ON_PAGE штук на странице"""
     post_list = Post.objects.select_related('author', 'group')
     page_number = request.GET.get('page')
+    paginator = Paginator(post_list, LIMIT_POSTS_ON_PAGE).get_page(page_number)
     return render(
-        request, 'posts/index.html', {'page_obj': Paginator(
-            post_list, LIMIT_POSTS_ON_PAGE).get_page(
-                page_number)})
+        request, 'posts/index.html', {'page_obj': paginator})
 
 
 def group_posts(request, slug):
@@ -65,7 +64,7 @@ def post_detail(request, post_id):
 def post_create(request, is_edit=False):
     """Создание нового поста."""
     form = PostForm(request.POST or None)
-    if (request.method == 'POST' and form.is_valid()):
+    if request.method == 'POST' and form.is_valid():
         post = form.save(commit=False)
         post.author = request.user
         post.save()
@@ -78,14 +77,13 @@ def post_edit(request, post_id):
     """Редактирование поста."""
     post = get_object_or_404(Post, pk=post_id)
     form = PostForm(request.POST or None, instance=post)
-    if post.author == request.user:
-        if not form.is_valid():
-            context = {
-                'form': form,
-                'is_edit': True
-            }
-            return render(request, 'posts/create_post.html', context)
-    if request.method == "POST":
+    if not form.is_valid():
+        context = {
+            'form': form,
+            'is_edit': True
+        }
+        return render(request, 'posts/create_post.html', context)
+    if post.author == request.user and request.method == "POST":
         post = form.save(commit=False)
         post.author = request.user
         post.save()
