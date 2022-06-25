@@ -9,24 +9,33 @@ from .models import Group, Post, User
 LIMIT_POSTS_ON_PAGE: int = 10
 
 
+def paginator(post_list):
+    paginator = Paginator(post_list, LIMIT_POSTS_ON_PAGE)
+    return paginator
+
+
+def page_number(request):
+    page_number = request.GET.get('page')
+    return page_number
+
+
 def index(request):
     """Все посты, разбивает по LIMIT_POSTS_ON_PAGE штук на странице"""
     post_list = Post.objects.select_related('author', 'group')
-    page_number = request.GET.get('page')
-    paginator = Paginator(post_list, LIMIT_POSTS_ON_PAGE).get_page(page_number)
     return render(
-        request, 'posts/index.html', {'page_obj': paginator})
+        request, 'posts/index.html', {
+            'page_obj': paginator(post_list).get_page(page_number(request))
+        }
+    )
 
 
 def group_posts(request, slug):
     """Посты группы, разбивает по LIMIT_POSTS_ON_PAGE штук на странице."""
     group = get_object_or_404(Group, slug=slug)
     post_list = group.posts.all()
-    paginator = Paginator(post_list, LIMIT_POSTS_ON_PAGE)
-    page_number = request.GET.get('page')
     context = {
         'group': group,
-        'page_obj': paginator.get_page(page_number),
+        'page_obj': paginator(post_list).get_page(page_number(request)),
     }
     return render(request, 'posts/group_list.html', context)
 
@@ -34,14 +43,12 @@ def group_posts(request, slug):
 def profile(request, username):
     """Посты автора, разбивает по LIMIT_POSTS_ON_PAGE штук на странице."""
     author = get_object_or_404(User, username=username)
-    posts_list = author.posts.all()
-    posts_count = posts_list.count()
-    paginator = Paginator(posts_list, LIMIT_POSTS_ON_PAGE)
-    page_number = request.GET.get('page')
+    post_list = author.posts.all()
+    post_count = post_list.count()
     context = {
         'author': author,
-        'page_obj': paginator.get_page(page_number),
-        'posts_count': posts_count,
+        'page_obj': paginator(post_list).get_page(page_number(request)),
+        'posts_count': post_count,
     }
     return render(request, 'posts/profile.html', context)
 

@@ -23,11 +23,11 @@ class Post(models.Model):
         null=True,
         on_delete=models.SET_NULL,
         related_name='posts',
-        verbose_name='Группа'
+        verbose_name='Пост'
     )
 
     class Meta:
-        verbose_name_plural = 'Группы'
+        verbose_name_plural = 'Посты'
         ordering = ['-pub_date']
 
 
@@ -35,6 +35,7 @@ class Group(models.Model):
     title = models.CharField('Название', max_length=200)
     description = models.TextField()
     slug = models.SlugField(max_length=20, unique=True,)
+    verbose_name_plural = 'Группы'
 
     def __str__(self) -> str:
         return self.title
