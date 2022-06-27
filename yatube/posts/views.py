@@ -1,7 +1,7 @@
-from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
+from . import utils
 from .forms import PostForm
 from .models import Group, Post, User
 
@@ -9,18 +9,12 @@ from .models import Group, Post, User
 LIMIT_POSTS_ON_PAGE: int = 10
 
 
-def paginator(request, post_list):
-    page_number = request.GET.get('page')
-    paginator = Paginator(post_list, LIMIT_POSTS_ON_PAGE).get_page(page_number)
-    return paginator
-
-
 def index(request):
     """Все посты, разбивает по LIMIT_POSTS_ON_PAGE штук на странице"""
     post_list = Post.objects.select_related('author', 'group')
     return render(
         request, 'posts/index.html', {
-            'page_obj': paginator(request, post_list),
+            'page_obj': utils.paginator(request, post_list),
         }
     )
 
@@ -31,7 +25,7 @@ def group_posts(request, slug):
     post_list = group.posts.all()
     context = {
         'group': group,
-        'page_obj': paginator(request, post_list),
+        'page_obj': utils.paginator(request, post_list),
     }
     return render(request, 'posts/group_list.html', context)
 
@@ -43,7 +37,7 @@ def profile(request, username):
     post_count = post_list.count()
     context = {
         'author': author,
-        'page_obj': paginator(request, post_list),
+        'page_obj': utils.paginator(request, post_list),
         'posts_count': post_count,
     }
     return render(request, 'posts/profile.html', context)
@@ -82,11 +76,10 @@ def post_edit(request, post_id):
     form = PostForm(request.POST or None, instance=post)
     if post.author != request.user:
         return redirect('posts:profile', request.user.username)
-    else:
-        context = {
-            'form': form,
-            'is_edit': True
-        }
+    context = {
+        'form': form,
+        'is_edit': True
+    }
     if request.method == 'POST' and form.is_valid():
         post = form.save(commit=False)
         post.author = request.user
